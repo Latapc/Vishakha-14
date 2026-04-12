@@ -1,0 +1,22 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user who has registered for the birthday surprise",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "username": { "type": "string", "description": "Chosen display name" },
+        "email": { "type": "string", "description": "User's email address" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user registered" }
+      },
+      "required": ["uid", "username", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of registered users"
+    }
+  }
+}
