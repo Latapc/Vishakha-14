@@ -16,9 +16,7 @@ import {
   Sparkles, 
   ChevronDown,
   PartyPopper,
-  Quote,
-  Volume2,
-  VolumeX
+  Quote
 } from 'lucide-react';
 
 const REASONS = [
@@ -54,6 +52,76 @@ const FloatingElement = ({ children, delay = 0, duration = 6 }: { children: Reac
     {children}
   </motion.div>
 );
+
+const ParallaxSection = ({ children, offset = 50 }: { children: React.ReactNode, offset?: number }) => {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"]
+  });
+
+  const y = useTransform(scrollYProgress, [0, 1], [offset, -offset]);
+
+  return (
+    <div ref={ref} className="relative">
+      <motion.div style={{ y }}>
+        {children}
+      </motion.div>
+    </div>
+  );
+};
+
+const FloatingDecorations = () => {
+  const items = [
+    { Icon: Heart, color: 'text-pink-400', size: 24, top: '10%', left: '5%', delay: 0 },
+    { Icon: Stars, color: 'text-yellow-300', size: 20, top: '20%', left: '85%', delay: 1 },
+    { Icon: Gift, color: 'text-purple-400', size: 28, top: '70%', left: '10%', delay: 2 },
+    { Icon: Cake, color: 'text-orange-300', size: 32, top: '80%', left: '80%', delay: 3 },
+    { Icon: Sparkles, color: 'text-blue-300', size: 22, top: '40%', left: '90%', delay: 1.5 },
+    { Icon: Music, color: 'text-indigo-400', size: 26, top: '60%', left: '5%', delay: 2.5 },
+    { Icon: Camera, color: 'text-emerald-400', size: 24, top: '15%', left: '75%', delay: 0.5 },
+    { Icon: Heart, color: 'text-red-400', size: 18, top: '85%', left: '15%', delay: 4 },
+  ];
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-30">
+      {items.map((item, i) => (
+        <div 
+          key={i} 
+          className="absolute" 
+          style={{ top: item.top, left: item.left }}
+        >
+          <FloatingElement delay={item.delay} duration={5 + Math.random() * 5}>
+            <item.Icon className={item.color} size={item.size} />
+          </FloatingElement>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const InteractiveCelebration = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    const x = e.clientX / window.innerWidth;
+    const y = e.clientY / window.innerHeight;
+    
+    confetti({
+      particleCount: 30,
+      spread: 60,
+      origin: { x, y },
+      colors: ['#a855f7', '#f472b6', '#fbbf24'],
+      disableForReducedMotion: true
+    });
+  };
+
+  return (
+    <div 
+      onClick={handleClick}
+      className="fixed inset-0 z-10 cursor-pointer active:scale-95 transition-transform"
+      title="Click anywhere to celebrate!"
+    />
+  );
+};
 
 const SparkleEffect = () => {
   const [sparkles, setSparkles] = useState<{ id: number; x: number; y: number; size: number }[]>([]);
@@ -162,35 +230,6 @@ const Countdown = ({ targetDate, onComplete }: { targetDate: Date, onComplete?: 
   );
 };
 
-const BackgroundMusic = ({ videoId }: { videoId: string }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-
-  return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => setIsPlaying(!isPlaying)}
-        className="p-3 rounded-full glass shadow-lg text-birthday-accent flex items-center gap-2 group"
-      >
-        {isPlaying ? <Volume2 size={24} /> : <VolumeX size={24} />}
-        <span className="text-xs font-serif italic pr-2 max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 whitespace-nowrap">
-          {isPlaying ? 'Music On' : 'Play Music'}
-        </span>
-      </motion.button>
-      {isPlaying && (
-        <iframe
-          className="hidden"
-          width="0"
-          height="0"
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&loop=1&playlist=${videoId}`}
-          allow="autoplay"
-        />
-      )}
-    </div>
-  );
-};
-
 const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
   const [isGiftOpen, setIsGiftOpen] = useState(false);
   const containerRef = useRef(null);
@@ -228,9 +267,42 @@ const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
     }());
   }, []);
 
+  useEffect(() => {
+    if (isGiftOpen) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#a855f7', '#c084fc', '#d4af37']
+      });
+    }
+  }, [isGiftOpen]);
+
   return (
     <div ref={containerRef} className="relative min-h-screen selection:bg-purple-200 selection:text-purple-900 text-slate-100">
       <SparkleEffect />
+      
+      {/* Parallax Background Elements */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <motion.div 
+          style={{ y: useTransform(scrollYProgress, [0, 1], [0, -200]) }}
+          className="absolute top-[20%] left-[10%] opacity-10"
+        >
+          <Heart size={120} className="text-birthday-accent" />
+        </motion.div>
+        <motion.div 
+          style={{ y: useTransform(scrollYProgress, [0, 1], [0, -400]) }}
+          className="absolute top-[60%] right-[5%] opacity-10"
+        >
+          <Stars size={150} className="text-yellow-400" />
+        </motion.div>
+        <motion.div 
+          style={{ y: useTransform(scrollYProgress, [0, 1], [0, -150]) }}
+          className="absolute top-[40%] left-[80%] opacity-10"
+        >
+          <Sparkles size={100} className="text-blue-400" />
+        </motion.div>
+      </div>
 
       {/* Hero Section */}
       <section className="relative h-screen flex flex-col items-center justify-center overflow-hidden px-4">
@@ -295,104 +367,110 @@ const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
       </section>
 
       {/* Message Section */}
-      <section className="py-24 px-4 max-w-4xl mx-auto text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 1 }}
-          className="glass p-12 rounded-[40px] relative"
-        >
-          <Quote className="absolute -top-6 left-1/2 -translate-x-1/2 text-birthday-accent w-12 h-12 fill-birthday-accent/10" />
-          <h2 className="font-display text-4xl md:text-5xl mb-8 text-black dark:text-white">To My Dearest Vishakha</h2>
-          <p className="font-serif text-xl md:text-2xl leading-relaxed text-purple-900 dark:text-purple-300 italic">
-            "Today is not just another day. It's the day the world became a little brighter because you were born. 
-            Turning 14 is a beautiful milestone—the bridge between childhood and the amazing person you are becoming. 
-            I'm so excited for 6:35 AM on April 30th to celebrate the exact moment you arrived!"
-          </p>
-        </motion.div>
-      </section>
+      <ParallaxSection offset={30}>
+        <section className="py-24 px-4 max-w-4xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+            className="glass p-12 rounded-[40px] relative"
+          >
+            <Quote className="absolute -top-6 left-1/2 -translate-x-1/2 text-birthday-accent w-12 h-12 fill-birthday-accent/10" />
+            <h2 className="font-display text-4xl md:text-5xl mb-8 text-black dark:text-white">To My Dearest Vishakha</h2>
+            <p className="font-serif text-xl md:text-2xl leading-relaxed text-purple-900 dark:text-purple-300 italic">
+              "Today is not just another day. It's the day the world became a little brighter because you were born. 
+              Turning 14 is a beautiful milestone—the bridge between childhood and the amazing person you are becoming. 
+              I'm so excited for 6:35 AM on April 30th to celebrate the exact moment you arrived!"
+            </p>
+          </motion.div>
+        </section>
+      </ParallaxSection>
 
       {/* 14 Reasons Section */}
-      <section className="py-24 px-4 bg-white/50 dark:bg-slate-900/50">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="font-display text-5xl md:text-6xl text-black dark:text-white mb-4">14 Reasons Why</h2>
-            <p className="font-serif text-xl text-black dark:text-slate-400 italic">You are absolutely incredible</p>
-          </div>
+      <ParallaxSection offset={-30}>
+        <section className="py-24 px-4 bg-white/50 dark:bg-slate-900/50">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="font-display text-5xl md:text-6xl text-black dark:text-white mb-4">14 Reasons Why</h2>
+              <p className="font-serif text-xl text-black dark:text-slate-400 italic">You are absolutely incredible</p>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {REASONS.map((reason, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -5 }}
-                className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-purple-100 dark:border-slate-700 flex gap-4"
-              >
-                <span className="font-display text-4xl text-birthday-accent/20 font-bold shrink-0">
-                  {(index + 1).toString().padStart(2, '0')}
-                </span>
-                <p className="text-black dark:text-slate-300 font-medium leading-relaxed pt-2">{reason}</p>
-              </motion.div>
-            ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {REASONS.map((reason, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ y: -5 }}
+                  className="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-sm border border-purple-100 dark:border-slate-700 flex gap-4"
+                >
+                  <span className="font-display text-4xl text-birthday-accent/20 font-bold shrink-0">
+                    {(index + 1).toString().padStart(2, '0')}
+                  </span>
+                  <p className="text-black dark:text-slate-300 font-medium leading-relaxed pt-2">{reason}</p>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </ParallaxSection>
 
       {/* Virtual Gift Section */}
-      <section className="py-32 px-4 text-center overflow-hidden">
-        <div className="max-w-2xl mx-auto">
-          <h2 className="font-display text-4xl md:text-5xl mb-12 text-black dark:text-white">A Little Surprise For You</h2>
-          
-          <div className="relative h-64 flex items-center justify-center">
-            <AnimatePresence mode="wait">
-              {!isGiftOpen ? (
-                <motion.button
-                  key="gift"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0, rotate: 45, opacity: 0 }}
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsGiftOpen(true)}
-                  className="relative z-10"
-                >
-                  <div className="bg-birthday-accent p-8 rounded-3xl shadow-xl shadow-purple-200 dark:shadow-purple-900/20 relative">
-                    <Gift size={80} className="text-white" />
-                    <div className="absolute -top-4 -right-4 bg-yellow-400 p-3 rounded-full shadow-lg">
-                      <Sparkles className="text-white" size={24} />
-                    </div>
-                  </div>
-                  <p className="mt-6 font-serif italic text-lg text-birthday-accent animate-pulse">Click to open!</p>
-                </motion.button>
-              ) : (
-                <motion.div
-                  key="reveal"
-                  initial={{ opacity: 0, y: 50, scale: 0.5 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  className="glass p-10 rounded-[40px] border-2 border-birthday-accent/30"
-                >
-                  <PartyPopper className="mx-auto mb-6 text-birthday-accent w-16 h-16" />
-                  <h3 className="font-display text-3xl mb-4 text-black dark:text-white">Surprise!</h3>
-                  <p className="font-serif text-xl text-indigo-900 dark:text-indigo-300 italic mb-6">
-                    "This website is just a small token of how much you mean to me. 
-                    I hope your 14th year is your best one yet!"
-                  </p>
-                  <button 
-                    onClick={() => setIsGiftOpen(false)}
-                    className="text-birthday-accent font-serif italic hover:underline"
+      <ParallaxSection offset={20}>
+        <section className="py-32 px-4 text-center overflow-hidden">
+          <div className="max-w-2xl mx-auto">
+            <h2 className="font-display text-4xl md:text-5xl mb-12 text-black dark:text-white">A Little Surprise For You</h2>
+            
+            <div className="relative h-64 flex items-center justify-center">
+              <AnimatePresence mode="wait">
+                {!isGiftOpen ? (
+                  <motion.button
+                    key="gift"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0, rotate: 45, opacity: 0 }}
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setIsGiftOpen(true)}
+                    className="relative z-10"
                   >
-                    Close and open again?
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    <div className="bg-birthday-accent p-8 rounded-3xl shadow-xl shadow-purple-200 dark:shadow-purple-900/20 relative">
+                      <Gift size={80} className="text-white" />
+                      <div className="absolute -top-4 -right-4 bg-yellow-400 p-3 rounded-full shadow-lg">
+                        <Sparkles className="text-white" size={24} />
+                      </div>
+                    </div>
+                    <p className="mt-6 font-serif italic text-lg text-birthday-accent animate-pulse">Click to open!</p>
+                  </motion.button>
+                ) : (
+                  <motion.div
+                    key="reveal"
+                    initial={{ opacity: 0, y: 50, scale: 0.5 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="glass p-10 rounded-[40px] border-2 border-birthday-accent/30"
+                  >
+                    <PartyPopper className="mx-auto mb-6 text-birthday-accent w-16 h-16" />
+                    <h3 className="font-display text-3xl mb-4 text-black dark:text-white">Surprise!</h3>
+                    <p className="font-serif text-xl text-indigo-900 dark:text-indigo-300 italic mb-6">
+                      "This website is just a small token of how much you mean to me. 
+                      I hope your 14th year is your best one yet!"
+                    </p>
+                    <button 
+                      onClick={() => setIsGiftOpen(false)}
+                      className="text-birthday-accent font-serif italic hover:underline"
+                    >
+                      Close and open again?
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </ParallaxSection>
 
       {/* Footer */}
       <footer className="py-24 px-4 text-center border-t border-purple-100 dark:border-slate-700">
@@ -419,7 +497,7 @@ const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
 };
 
 export default function App() {
-  const birthdayDate = new Date(Date.now() + 30000);
+  const birthdayDate = new Date('2026-04-30T06:35:00');
   const [isBirthday, setIsBirthday] = useState(false);
 
   useEffect(() => {
@@ -430,7 +508,8 @@ export default function App() {
     return (
       <div className="relative min-h-screen flex flex-col items-center justify-center bg-birthday-dark px-4 overflow-y-auto py-12">
         <SparkleEffect />
-        <BackgroundMusic videoId="6OJH6zErltk" />
+        <FloatingDecorations />
+        <InteractiveCelebration />
         
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -473,7 +552,8 @@ export default function App() {
 
   return (
     <>
-      <BackgroundMusic videoId="6OJH6zErltk" />
+      <FloatingDecorations />
+      <InteractiveCelebration />
       <BirthdayContent birthdayDate={birthdayDate} />
     </>
   );
