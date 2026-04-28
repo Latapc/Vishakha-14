@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import confetti from 'canvas-confetti';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { 
   Heart, 
   Gift, 
@@ -16,8 +17,15 @@ import {
   Sparkles, 
   ChevronDown,
   PartyPopper,
-  Quote
+  Quote,
+  Activity,
+  LogIn,
+  LogOut
 } from 'lucide-react';
+import { PresenceTracker } from './lib/PresenceTracker';
+import { AdminPage } from './lib/AdminPage';
+import { auth } from './lib/firebase';
+import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 const REASONS = [
   "Your infectious laughter that brightens everyone's day.",
@@ -496,13 +504,84 @@ const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
   );
 };
 
-export default function App() {
+const MainView = () => {
   const birthdayDate = new Date('2026-04-30T06:35:00');
   const [isBirthday, setIsBirthday] = useState(false);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return () => unsub();
   }, []);
+
+  const handleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed", error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-birthday-dark flex items-center justify-center">
+        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}>
+          <Sparkles className="text-birthday-accent" size={40} />
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="relative min-h-screen flex flex-col items-center justify-center bg-birthday-dark px-4 overflow-hidden">
+        <SparkleEffect />
+        <FloatingDecorations />
+        
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center z-10 glass p-10 md:p-16 rounded-[40px] md:rounded-[60px] max-w-xl w-full"
+        >
+          <motion.div
+            animate={{ y: [0, -10, 0] }}
+            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+            className="inline-block mb-8"
+          >
+            <div className="p-6 bg-birthday-accent/10 rounded-full border border-birthday-accent/30 shadow-2xl shadow-purple-500/20">
+              <Heart size={60} className="text-birthday-accent fill-birthday-accent/20" />
+            </div>
+          </motion.div>
+          
+          <h1 className="font-display text-4xl md:text-5xl font-black text-white mb-6">
+            Welcome to Vishakha's Birthday Surprise!
+          </h1>
+          <p className="font-serif text-lg text-slate-400 italic mb-10 leading-relaxed px-4">
+            A special gift is being prepared. Please identify yourself to join the celebration countdown.
+          </p>
+          
+          <button 
+            onClick={handleLogin}
+            className="w-full flex items-center justify-center gap-3 bg-birthday-accent text-white py-5 rounded-2xl font-bold font-display uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-purple-500/20 group"
+          >
+            <LogIn size={20} />
+            Enter the Surprise
+          </button>
+        </motion.div>
+
+        <div className="absolute inset-0 pointer-events-none opacity-50">
+          <div className="absolute top-10 left-10"><FloatingElement delay={0}><Stars className="text-yellow-200" /></FloatingElement></div>
+          <div className="absolute bottom-10 right-10"><FloatingElement delay={1}><Gift className="text-purple-200" /></FloatingElement></div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isBirthday) {
     return (
@@ -541,7 +620,35 @@ export default function App() {
           </p>
         </motion.div>
 
-        {/* Floating background elements for the locked screen */}
+        {/* Global Controls */}
+        <div className="fixed bottom-6 left-6 z-50 flex items-center gap-3">
+          <button 
+            onClick={() => signOut(auth)}
+            className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2 group shadow-xl"
+            title="Sign Out"
+          >
+            <LogOut size={20} />
+            <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 whitespace-nowrap text-xs font-bold font-display uppercase tracking-widest">
+              Sign Out
+            </span>
+          </button>
+          
+          {user.email === 'neelamtiwari81976@gmail.com' && (
+            <a 
+              href="/admin-view-presence" 
+              className="p-3 bg-birthday-accent/20 backdrop-blur-md rounded-2xl border border-birthday-accent/30 text-birthday-accent hover:scale-110 transition-all flex items-center gap-2 group shadow-xl"
+              title="Admin Dashboard"
+            >
+              <Activity size={20} />
+              <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 whitespace-nowrap text-xs font-bold font-display uppercase tracking-widest">
+                Presence Dash
+              </span>
+            </a>
+          )}
+          
+          <PresenceTracker />
+        </div>
+
         <div className="absolute inset-0 pointer-events-none opacity-50">
           <div className="absolute top-10 left-10"><FloatingElement delay={0}><Heart className="text-purple-200" /></FloatingElement></div>
           <div className="absolute bottom-10 right-10"><FloatingElement delay={1}><Stars className="text-yellow-200" /></FloatingElement></div>
@@ -555,6 +662,31 @@ export default function App() {
       <FloatingDecorations />
       <InteractiveCelebration />
       <BirthdayContent birthdayDate={birthdayDate} />
+      
+      {/* Sign Out for authorized users even on main content */}
+      <div className="fixed bottom-6 left-6 z-50">
+        <button 
+          onClick={() => signOut(auth)}
+          className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2 group shadow-xl"
+        >
+          <LogOut size={20} />
+          <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 whitespace-nowrap text-xs font-bold font-display uppercase tracking-widest">
+            Leave Surprise
+          </span>
+        </button>
+      </div>
     </>
+  );
+};
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <PresenceTracker />
+      <Routes>
+        <Route path="/" element={<MainView />} />
+        <Route path="/admin-view-presence" element={<AdminPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

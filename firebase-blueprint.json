@@ -11,12 +11,27 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "When the user registered" }
       },
       "required": ["uid", "username", "email", "createdAt"]
+    },
+    "Presence": {
+      "title": "Presence",
+      "description": "Tracks online status of users",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the session" },
+        "lastActive": { "type": "string", "format": "date-time", "description": "Last heartbeat time" },
+        "email": { "type": "string", "description": "User email if logged in" }
+      },
+      "required": ["uid", "lastActive"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "Collection of registered users"
+    },
+    "/presence/{sessionId}": {
+      "schema": "Presence",
+      "description": "Real-time presence tracking"
     }
   }
 }

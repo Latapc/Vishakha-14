@@ -1,44 +1,53 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: users
-    // Document ID: userId (Auth UID)
-    // Fields:
-    //   - uid: string (required)
-    //   - username: string (required, 3-20 chars)
-    //   - email: string (required)
-    //   - createdAt: timestamp (required)
-    // ===============================================================
+    
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
-    function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'username', 'email', 'createdAt']) &&
-             data.keys().hasOnly(['uid', 'username', 'email', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             data.username is string && data.username.size() >= 3 && data.username.size() <= 20 &&
-             data.email is string &&
-             data.createdAt is timestamp;
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'neelamtiwari81976@gmail.com';
     }
 
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Users ---
     match /users/{userId} {
-      allow read: if true; // Leaderboard is public
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && 
-                      isValidUser(request.resource.data) && 
-                      request.resource.data.uid == resource.data.uid &&
-                      request.resource.data.email == resource.data.email &&
-                      request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if false;
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Presence ---
+    function isValidPresence(data) {
+      return data.keys().hasAll(['uid', 'lastActive']) &&
+             data.uid is string && data.uid.size() <= 128 &&
+             data.lastActive is timestamp;
+    }
+
+    match /presence/{sessionId} {
+      // Admin can list and get all presence docs
+      allow read: if isAdmin();
+      
+      // Anyone can create/update their own presence
+      allow create: if isValidId(sessionId) && isValidPresence(request.resource.data);
+      allow update: if isValidId(sessionId) && 
+                      isValidPresence(request.resource.data) &&
+                      request.resource.data.uid == resource.data.uid;
+      
+      // Cleanup delete if we want, but for now only admin or nobody
+      allow delete: if isAdmin();
     }
   }
 }
