@@ -6,6 +6,7 @@ import { Users, X, Clock, Monitor, MapPin, ExternalLink } from 'lucide-react';
 
 interface PresenceData {
   uid: string;
+  name?: string;
   lastActive: Timestamp;
   location?: {
     lat: number;
@@ -14,7 +15,7 @@ interface PresenceData {
   };
 }
 
-export const SecretAdminModal = ({ onClose }: { onClose: () => void }) => {
+export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () => void, currentSessionId?: string | null }) => {
   const [visitors, setVisitors] = useState<PresenceData[]>([]);
 
   useEffect(() => {
@@ -73,11 +74,21 @@ export const SecretAdminModal = ({ onClose }: { onClose: () => void }) => {
 
           <div className="space-y-4">
             {visitors.map((visitor) => (
-              <div key={visitor.uid} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+              <div key={visitor.uid} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border ${visitor.uid === currentSessionId ? 'border-birthday-accent bg-birthday-accent/5' : 'border-white/5'}`}>
                 <div className="flex items-center gap-4">
                   <div className={`w-3 h-3 rounded-full ${isOnline(visitor.lastActive) ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}`} />
                   <div>
-                    <div className="font-mono text-xs text-slate-400">ID: {visitor.uid}</div>
+                    <div className="flex flex-col">
+                      <div className="text-white font-bold text-sm">
+                        {visitor.name || 'Anonymous Guest'}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="font-mono text-[10px] text-slate-500">ID: {visitor.uid}</div>
+                        {visitor.uid === currentSessionId && (
+                          <span className="bg-birthday-accent text-white text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">You</span>
+                        )}
+                      </div>
+                    </div>
                     {visitor.location ? (
                       <a 
                         href={`https://www.google.com/maps?q=${visitor.location.lat},${visitor.location.lng}`}

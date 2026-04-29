@@ -18,6 +18,7 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string", "description": "Unique identifier for the session" },
+        "name": { "type": "string", "description": "Display name of the user" },
         "lastActive": { "type": "string", "format": "date-time", "description": "Last heartbeat time" },
         "email": { "type": "string", "description": "User email if logged in" },
         "location": {

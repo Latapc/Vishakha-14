@@ -33,6 +33,7 @@ service cloud.firestore {
     function isValidPresence(data) {
       let base = data.keys().hasAll(['uid', 'lastActive']) &&
                  data.uid is string && data.uid.size() <= 128 &&
+                 (data.keys().hasAny(['name']) ? (data.name is string && data.name.size() <= 100) : true) &&
                  data.lastActive is timestamp;
       
       let hasLocation = data.keys().hasAny(['location']);

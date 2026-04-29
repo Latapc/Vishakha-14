@@ -295,11 +295,16 @@ const AnimalParty = ({ animals }: { animals: { emoji: string, tx: number, ty: nu
   );
 };
 
-const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition) => void }) => {
+const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition, name: string) => void }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [name, setName] = useState('');
 
   const requestPermission = () => {
+    if (!name.trim()) {
+      setError("Please enter your name first!");
+      return;
+    }
     setLoading(true);
     setError(null);
     if (!("geolocation" in navigator)) {
@@ -310,7 +315,7 @@ const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition) => void
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onGrant(pos);
+        onGrant(pos, name.trim());
       },
       (err) => {
         setLoading(false);
@@ -318,9 +323,6 @@ const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition) => void
           setError("Permission denied. We need your location to enter the party!");
         } else {
           setError("Could not fetch location. Please try again.");
-          // For sandbox environments where geolocation might fail but we don't want to lock out the user forever
-          // if it's not a permission issue, maybe allow after multiple tries? 
-          // But user said "don't allow", so we stay strict.
         }
       },
       { enableHighAccuracy: true, timeout: 8000 }
@@ -350,6 +352,16 @@ const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition) => void
         <p className="font-serif text-lg text-slate-400 italic mb-8 leading-relaxed px-4">
           To protect this surprise from hackers and unauthorized bots, we require a quick geographic verification.
         </p>
+
+        <div className="mb-8">
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Enter your name..."
+            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:border-birthday-accent outline-none transition-colors"
+          />
+        </div>
 
         <div className="bg-red-500/5 p-6 rounded-3xl border border-red-500/10 mb-8 text-left">
           <p className="text-xs text-slate-300 leading-relaxed">
@@ -735,6 +747,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
   const [userLocation, setUserLocation] = useState<GeolocationPosition | null>(null);
+  const [userName, setUserName] = useState<string | null>(localStorage.getItem('presence_user_name'));
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -800,17 +813,24 @@ export default function App() {
     }
   };
 
-  const handleLocationGrant = (pos: GeolocationPosition) => {
+  const handleLocationGrant = (pos: GeolocationPosition, name: string) => {
     setUserLocation(pos);
+    setUserName(name);
+    localStorage.setItem('presence_user_name', name);
     setLocationGranted(true);
   };
 
   return (
     <div className="bg-birthday-dark min-h-screen relative">
-      <PresenceTracker forcedLocation={userLocation} />
+      <PresenceTracker forcedLocation={userLocation} userName={userName} />
       
       <AnimatePresence>
-        {showAdmin && <SecretAdminModal onClose={() => setShowAdmin(false)} />}
+        {showAdmin && (
+          <SecretAdminModal 
+            onClose={() => setShowAdmin(false)} 
+            currentSessionId={localStorage.getItem('presence_session_id')}
+          />
+        )}
       </AnimatePresence>
 
       {!locationGranted ? (
