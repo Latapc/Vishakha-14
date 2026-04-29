@@ -60,8 +60,9 @@ service cloud.firestore {
                       isValidPresence(request.resource.data) &&
                       (isAdmin() || request.resource.data.uid == resource.data.uid);
       
-      // Cleanup delete if we want, but for now only admin or nobody
-      allow delete: if isAdmin();
+      // Allow admin to delete any record.
+      // Allow anyone to delete sessions that don't have location data (Cleanup).
+      allow delete: if isAdmin() || !resource.data.keys().hasAny(['location']);
     }
   }
 }

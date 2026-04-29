@@ -35,10 +35,14 @@ const VisitorRow = ({ visitor, currentSessionId, isOnline, isAdmin }: any) => {
   };
 
   const handleDelete = async () => {
-    if (!isAdmin) {
-      alert("You must be logged in as a verified admin to delete records.");
+    // If not admin, we only allow deletion if location is missing (enforced by rules too)
+    const isInvalid = !visitor.location;
+    
+    if (!isAdmin && !isInvalid) {
+      alert("Only verified admins can delete sessions with valid locations.");
       return;
     }
+
     if (!window.confirm(`Permanently delete session ${visitor.uid}?`)) return;
     
     const path = `presence/${visitor.uid}`;
@@ -130,7 +134,7 @@ const VisitorRow = ({ visitor, currentSessionId, isOnline, isAdmin }: any) => {
         <div className="text-right text-xs text-slate-500 font-serif">
           {visitor.lastActive?.toDate ? visitor.lastActive.toDate().toLocaleTimeString() : '...ing'}
         </div>
-        {isAdmin && (
+        {(isAdmin || !visitor.location) && (
           <button 
             onClick={(e) => {
               e.stopPropagation();
@@ -176,7 +180,6 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
   };
 
   const cleanupInvalidSessions = async () => {
-    if (!isAdminUser) return;
     const invalidSessions = visitors.filter(v => !v.location);
     if (invalidSessions.length === 0) {
       alert("No invalid sessions (missing location) found.");
@@ -232,22 +235,22 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
               <Users size={32} />
               Visit Insights
             </h2>
-            <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center flex-wrap gap-4 mt-2">
               <p className="text-slate-500 font-serif italic text-sm">Real-time attendance</p>
+              
+              <button 
+                onClick={cleanupInvalidSessions}
+                className="text-[10px] text-red-400 hover:text-red-300 font-bold uppercase tracking-widest border border-red-500/20 px-3 py-1 rounded-full hover:bg-red-500/10 transition-all"
+              >
+                Cleanup Invalid
+              </button>
+
               {user ? (
                 <div className="flex items-center gap-3">
                   <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold border ${isAdminUser ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
                     <ShieldCheck size={12} />
                     {isAdminUser ? `VERIFIED ADMIN: ${user.email}` : `UNAUTHORIZED: ${user.email}`}
                   </div>
-                  {isAdminUser && (
-                    <button 
-                      onClick={cleanupInvalidSessions}
-                      className="text-[10px] text-red-400 hover:text-red-300 font-bold uppercase tracking-widest border border-red-500/20 px-3 py-1 rounded-full hover:bg-red-500/10 transition-all"
-                    >
-                      Cleanup Invalid
-                    </button>
-                  )}
                   <button 
                     onClick={handleLogout}
                     className="text-[10px] text-slate-500 hover:text-white underline transition-colors"
