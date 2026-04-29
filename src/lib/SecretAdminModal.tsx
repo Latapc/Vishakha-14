@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { db } from './firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
-import { motion } from 'motion/react';
-import { Users, X, Clock, Monitor, MapPin, ExternalLink } from 'lucide-react';
+import { collection, query, onSnapshot, orderBy, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { motion, AnimatePresence } from 'motion/react';
+import { Users, X, Clock, Monitor, MapPin, ExternalLink, Edit2, Check, XCircle } from 'lucide-react';
 
 interface PresenceData {
   uid: string;
@@ -14,6 +14,86 @@ interface PresenceData {
     accuracy: number;
   };
 }
+
+const VisitorRow = ({ visitor, currentSessionId, isOnline }: any) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempName, setTempName] = useState(visitor.name || '');
+
+  const handleSave = async () => {
+    try {
+      const presenceRef = doc(db, 'presence', visitor.uid);
+      await updateDoc(presenceRef, {
+        name: tempName.trim() || 'Anonymous Guest'
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating name:", error);
+      alert("Permission denied. Ensure you are recognized as an admin.");
+    }
+  };
+
+  return (
+    <div key={visitor.uid} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border ${visitor.uid === currentSessionId ? 'border-birthday-accent bg-birthday-accent/5' : 'border-white/5'}`}>
+      <div className="flex items-center gap-4">
+        <div className={`w-3 h-3 rounded-full ${isOnline(visitor.lastActive) ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}`} />
+        <div>
+          <div className="flex flex-col">
+            {isEditing ? (
+              <div className="flex items-center gap-2 mb-1">
+                <input
+                  autoFocus
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                  className="bg-slate-800 border border-birthday-accent/30 rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-birthday-accent w-40"
+                  placeholder="Set name..."
+                />
+                <button onClick={handleSave} className="p-1 text-green-400 hover:bg-green-400/10 rounded-lg">
+                  <Check size={16} />
+                </button>
+                <button onClick={() => setIsEditing(false)} className="p-1 text-red-400 hover:bg-red-400/10 rounded-lg">
+                  <XCircle size={16} />
+                </button>
+              </div>
+            ) : (
+              <div 
+                className="text-white font-bold text-sm flex items-center gap-2 cursor-pointer group"
+                onClick={() => setIsEditing(true)}
+              >
+                {visitor.name || 'Anonymous Guest'}
+                <Edit2 size={12} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="font-mono text-[10px] text-slate-500">ID: {visitor.uid}</div>
+              {visitor.uid === currentSessionId && (
+                <span className="bg-birthday-accent text-white text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">You</span>
+              )}
+            </div>
+          </div>
+          {visitor.location ? (
+            <a 
+              href={`https://www.google.com/maps?q=${visitor.location.lat},${visitor.location.lng}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[10px] text-birthday-accent flex items-center gap-1 mt-1 hover:underline group inline-flex"
+            >
+              <MapPin size={10} />
+              {visitor.location.lat.toFixed(4)}, {visitor.location.lng.toFixed(4)}
+              <ExternalLink size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+          ) : (
+            <div className="text-[10px] text-slate-600 uppercase tracking-tighter mt-1">Location Unknown</div>
+          )}
+        </div>
+      </div>
+      <div className="text-right text-xs text-slate-500 font-serif">
+        {visitor.lastActive.toDate().toLocaleTimeString()}
+      </div>
+    </div>
+  );
+};
 
 export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () => void, currentSessionId?: string | null }) => {
   const [visitors, setVisitors] = useState<PresenceData[]>([]);
@@ -74,41 +154,12 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
 
           <div className="space-y-4">
             {visitors.map((visitor) => (
-              <div key={visitor.uid} className={`flex items-center justify-between p-4 bg-white/5 rounded-2xl border ${visitor.uid === currentSessionId ? 'border-birthday-accent bg-birthday-accent/5' : 'border-white/5'}`}>
-                <div className="flex items-center gap-4">
-                  <div className={`w-3 h-3 rounded-full ${isOnline(visitor.lastActive) ? 'bg-green-400 animate-pulse' : 'bg-slate-600'}`} />
-                  <div>
-                    <div className="flex flex-col">
-                      <div className="text-white font-bold text-sm">
-                        {visitor.name || 'Anonymous Guest'}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="font-mono text-[10px] text-slate-500">ID: {visitor.uid}</div>
-                        {visitor.uid === currentSessionId && (
-                          <span className="bg-birthday-accent text-white text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">You</span>
-                        )}
-                      </div>
-                    </div>
-                    {visitor.location ? (
-                      <a 
-                        href={`https://www.google.com/maps?q=${visitor.location.lat},${visitor.location.lng}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[10px] text-birthday-accent flex items-center gap-1 mt-1 hover:underline group"
-                      >
-                        <MapPin size={10} />
-                        {visitor.location.lat.toFixed(4)}, {visitor.location.lng.toFixed(4)}
-                        <ExternalLink size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </a>
-                    ) : (
-                      <div className="text-[10px] text-slate-600 uppercase tracking-tighter">Location Unknown</div>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right text-xs text-slate-500 font-serif">
-                  {visitor.lastActive.toDate().toLocaleTimeString()}
-                </div>
-              </div>
+              <VisitorRow 
+                key={visitor.uid} 
+                visitor={visitor} 
+                currentSessionId={currentSessionId} 
+                isOnline={isOnline} 
+              />
             ))}
           </div>
         </div>

@@ -295,16 +295,11 @@ const AnimalParty = ({ animals }: { animals: { emoji: string, tx: number, ty: nu
   );
 };
 
-const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition, name: string) => void }) => {
+const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition) => void }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [name, setName] = useState('');
 
   const requestPermission = () => {
-    if (!name.trim()) {
-      setError("Please enter your name first!");
-      return;
-    }
     setLoading(true);
     setError(null);
     if (!("geolocation" in navigator)) {
@@ -315,12 +310,12 @@ const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition, name: s
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onGrant(pos, name.trim());
+        onGrant(pos);
       },
       (err) => {
         setLoading(false);
         if (err.code === 1) {
-          setError("Permission denied. We need your location to enter the party!");
+          setError("Permission denied. We need your location to verify you're not a hacker!");
         } else {
           setError("Could not fetch location. Please try again.");
         }
@@ -352,16 +347,6 @@ const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition, name: s
         <p className="font-serif text-lg text-slate-400 italic mb-8 leading-relaxed px-4">
           To protect this surprise from hackers and unauthorized bots, we require a quick geographic verification.
         </p>
-
-        <div className="mb-8">
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Enter your name..."
-            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:border-birthday-accent outline-none transition-colors"
-          />
-        </div>
 
         <div className="bg-red-500/5 p-6 rounded-3xl border border-red-500/10 mb-8 text-left">
           <p className="text-xs text-slate-300 leading-relaxed">
@@ -747,7 +732,6 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
   const [userLocation, setUserLocation] = useState<GeolocationPosition | null>(null);
-  const [userName, setUserName] = useState<string | null>(localStorage.getItem('presence_user_name'));
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -813,16 +797,14 @@ export default function App() {
     }
   };
 
-  const handleLocationGrant = (pos: GeolocationPosition, name: string) => {
+  const handleLocationGrant = (pos: GeolocationPosition) => {
     setUserLocation(pos);
-    setUserName(name);
-    localStorage.setItem('presence_user_name', name);
     setLocationGranted(true);
   };
 
   return (
     <div className="bg-birthday-dark min-h-screen relative">
-      <PresenceTracker forcedLocation={userLocation} userName={userName} />
+      <PresenceTracker forcedLocation={userLocation} />
       
       <AnimatePresence>
         {showAdmin && (

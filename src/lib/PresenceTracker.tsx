@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { db } from './firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-export const PresenceTracker = ({ forcedLocation, userName }: { forcedLocation?: GeolocationPosition | null, userName?: string | null }) => {
+export const PresenceTracker = ({ forcedLocation }: { forcedLocation?: GeolocationPosition | null }) => {
   useEffect(() => {
     const sessionId = localStorage.getItem('presence_session_id') || Math.random().toString(36).substring(2);
     localStorage.setItem('presence_session_id', sessionId);
@@ -15,10 +15,6 @@ export const PresenceTracker = ({ forcedLocation, userName }: { forcedLocation?:
           updatedAt: serverTimestamp(),
           userAgent: navigator.userAgent,
         };
-
-        if (userName) {
-          presenceData.name = userName;
-        }
 
         if (position) {
           presenceData.location = {
