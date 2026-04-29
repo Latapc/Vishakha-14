@@ -310,7 +310,18 @@ const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition) => void
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        onGrant(pos);
+        const { latitude, longitude } = pos.coords;
+        // Bounding box for Uttar Pradesh, India (approximate)
+        const isUP = 
+          latitude >= 23.8 && latitude <= 31.5 && 
+          longitude >= 77.0 && longitude <= 84.8;
+
+        if (isUP) {
+          onGrant(pos);
+        } else {
+          setLoading(false);
+          setError("Access Denied: Geographic Mismatch. Security protocol detected an attempt from outside Uttar Pradesh, India. (Disable VPN or ensure you are in the correct region)");
+        }
       },
       (err) => {
         setLoading(false);
@@ -732,6 +743,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
   const [userLocation, setUserLocation] = useState<GeolocationPosition | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(localStorage.getItem('presence_session_id'));
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -804,13 +816,13 @@ export default function App() {
 
   return (
     <div className="bg-birthday-dark min-h-screen relative">
-      <PresenceTracker forcedLocation={userLocation} />
+      <PresenceTracker forcedLocation={userLocation} onIdReady={setSessionId} />
       
       <AnimatePresence>
         {showAdmin && (
           <SecretAdminModal 
             onClose={() => setShowAdmin(false)} 
-            currentSessionId={localStorage.getItem('presence_session_id')}
+            currentSessionId={sessionId}
           />
         )}
       </AnimatePresence>

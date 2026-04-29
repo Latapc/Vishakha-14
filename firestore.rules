@@ -16,7 +16,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'neelamtiwari81976@gmail.com';
+      return isSignedIn() && 
+             request.auth.token.email == 'neelamtiwari81976@gmail.com' && 
+             request.auth.token.email_verified == true;
     }
 
     function isValidId(id) {
@@ -34,6 +36,7 @@ service cloud.firestore {
       let base = data.keys().hasAll(['uid', 'lastActive']) &&
                  data.uid is string && data.uid.size() <= 128 &&
                  (data.keys().hasAny(['name']) ? (data.name is string && data.name.size() <= 100) : true) &&
+                 (data.keys().hasAny(['ip']) ? (data.ip is string && data.ip.size() <= 64) : true) &&
                  data.lastActive is timestamp;
       
       let hasLocation = data.keys().hasAny(['location']);

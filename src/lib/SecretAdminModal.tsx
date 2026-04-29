@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { collection, query, onSnapshot, orderBy, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, X, Clock, Monitor, MapPin, ExternalLink, Edit2, Check, XCircle } from 'lucide-react';
+import { Users, X, Clock, Monitor, MapPin, ExternalLink, Edit2, Check, XCircle, LogIn, ShieldCheck } from 'lucide-react';
 
 interface PresenceData {
   uid: string;
   name?: string;
+  ip?: string;
   lastActive: Timestamp;
   location?: {
     lat: number;
@@ -89,14 +91,29 @@ const VisitorRow = ({ visitor, currentSessionId, isOnline }: any) => {
         </div>
       </div>
       <div className="text-right text-xs text-slate-500 font-serif">
-        {visitor.lastActive.toDate().toLocaleTimeString()}
+        {visitor.lastActive?.toDate ? visitor.lastActive.toDate().toLocaleTimeString() : '...ing'}
       </div>
     </div>
   );
 };
 
-export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () => void, currentSessionId?: string | null }) => {
+export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () => void, currentSessionId: string | null | undefined }) => {
   const [visitors, setVisitors] = useState<PresenceData[]>([]);
+  const [user, setUser] = useState<User | null>(auth.currentUser);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed:", error);
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'presence'), orderBy('lastActive', 'desc'));
@@ -108,6 +125,7 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
   }, []);
 
   const isOnline = (timestamp: Timestamp) => {
+    if (!timestamp?.toMillis) return true; // Assume online if just created
     return (Date.now() - timestamp.toMillis()) < 120000;
   };
 
@@ -129,7 +147,23 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
               <Users size={32} />
               Visit Insights
             </h2>
-            <p className="text-slate-500 font-serif italic">Real-time attendance for the surprise</p>
+            <div className="flex items-center gap-4 mt-2">
+              <p className="text-slate-500 font-serif italic text-sm">Real-time attendance</p>
+              {user ? (
+                <div className="flex items-center gap-2 bg-green-500/10 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold border border-green-500/20">
+                  <ShieldCheck size={12} />
+                  ADMIN: {user.email}
+                </div>
+              ) : (
+                <button 
+                  onClick={handleLogin}
+                  className="flex items-center gap-2 bg-birthday-accent/10 text-birthday-accent px-3 py-1 rounded-full text-[10px] font-bold border border-birthday-accent/20 hover:bg-birthday-accent/20 transition-all"
+                >
+                  <LogIn size={12} />
+                  ADMIN LOGIN
+                </button>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="p-4 hover:bg-white/5 rounded-full text-slate-400 transition-colors">
             <X size={24} />
@@ -152,15 +186,41 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
             </div>
           </div>
 
-          <div className="space-y-4">
-            {visitors.map((visitor) => (
-              <VisitorRow 
-                key={visitor.uid} 
-                visitor={visitor} 
-                currentSessionId={currentSessionId} 
-                isOnline={isOnline} 
-              />
-            ))}
+          <div className="space-y-8">
+            {Object.entries(
+              visitors.reduce((acc, visitor) => {
+                const ip = visitor.ip || 'unknown';
+                if (!acc[ip]) acc[ip] = [];
+                acc[ip].push(visitor);
+                return acc;
+              }, {} as Record<string, PresenceData[]>)
+            ).map(([ip, sessionsGroup]) => {
+              const sessions = sessionsGroup as PresenceData[];
+              return (
+              <div key={ip} className="space-y-3">
+                <div className="flex items-center gap-3 px-2">
+                  <div className="h-px flex-1 bg-white/5" />
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-800/50 px-3 py-1 rounded-full border border-white/5">
+                    <Monitor size={10} className="text-birthday-accent" />
+                    Network ID: {ip}
+                    <span className="text-birthday-accent/50 ml-1">({sessions.length} {sessions.length === 1 ? 'session' : 'sessions'})</span>
+                  </div>
+                  <div className="h-px flex-1 bg-white/5" />
+                </div>
+                
+                <div className="space-y-3">
+                  {sessions.map((visitor) => (
+                    <VisitorRow 
+                      key={visitor.uid} 
+                      visitor={visitor} 
+                      currentSessionId={currentSessionId} 
+                      isOnline={isOnline} 
+                    />
+                  ))}
+                </div>
+              </div>
+              );
+            })}
           </div>
         </div>
       </motion.div>
