@@ -255,34 +255,39 @@ const CommandConsole = ({ onCommand }: { onCommand: (cmd: string) => void }) => 
   );
 };
 
-const AnimalParty = ({ animals }: { animals: string[] }) => {
+const AnimalParty = ({ animals }: { animals: { emoji: string, tx: number, ty: number, id: string }[] }) => {
   return (
     <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
       <AnimatePresence>
-        {animals.map((emoji, i) => (
+        {animals.map((item) => (
           <motion.div
-            key={`${emoji}-${i}`}
+            key={item.id}
             initial={{ 
               x: Math.random() * window.innerWidth, 
               y: window.innerHeight + 100,
               rotate: Math.random() * 360,
-              scale: 0.5
+              scale: 0.2,
+              opacity: 0
             }}
             animate={{ 
-              y: -500,
+              x: (window.innerWidth / 2) + item.tx,
+              y: (window.innerHeight / 2) + item.ty,
               rotate: Math.random() * 720,
-              scale: 1 + Math.random() * 1.5,
-              x: (Math.random() - 0.5) * 800 + (Math.random() * window.innerWidth)
+              scale: 1 + Math.random() * 0.8,
+              opacity: 1
+            }}
+            exit={{ 
+              scale: 0,
+              opacity: 0,
+              y: -200
             }}
             transition={{ 
-              duration: 4 + Math.random() * 4, 
-              repeat: Infinity,
-              ease: "linear",
-              delay: Math.random() * 2
+              duration: 2.5, 
+              ease: "backOut",
             }}
-            className="absolute text-6xl select-none"
+            className="absolute text-5xl select-none"
           >
-            {emoji}
+            {item.emoji}
           </motion.div>
         ))}
       </AnimatePresence>
@@ -726,7 +731,7 @@ const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
 export default function App() {
   const birthdayDate = new Date('2026-04-30T06:35:00');
   const [isBirthday, setIsBirthday] = useState(false);
-  const [partyAnimals, setPartyAnimals] = useState<string[]>([]);
+  const [partyAnimals, setPartyAnimals] = useState<{ emoji: string, tx: number, ty: number, id: string }[]>([]);
   const [showAdmin, setShowAdmin] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
 
@@ -750,17 +755,28 @@ export default function App() {
       const list = ANIMAL_EMOJIS[animalType];
       let iterations = 0;
       const fps = 30;
-      const maxIterations = 15 * fps;
+      const maxIterations = 2 * fps;
+      const scale = Math.min(window.innerWidth, window.innerHeight) / 40;
 
       const triggerBombardment = () => {
-        const newBatch: string[] = [];
-        // Adjusted batch size for 30fps to maintain extreme density without crashing
+        const newBatch: { emoji: string, tx: number, ty: number, id: string }[] = [];
         for (let i = 0; i < 15; i++) {
-          newBatch.push(list[Math.floor(Math.random() * list.length)]);
+          // Heart formula:
+          // x = 16sin^3(t)
+          // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
+          const t = Math.random() * 2 * Math.PI;
+          const x = 16 * Math.pow(Math.sin(t), 3);
+          const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+          
+          newBatch.push({
+            emoji: list[Math.floor(Math.random() * list.length)],
+            tx: x * scale + (Math.random() - 0.5) * 50,
+            ty: y * scale + (Math.random() - 0.5) * 50,
+            id: `${Date.now()}-${Math.random()}`
+          });
         }
-        setPartyAnimals(prev => [...prev, ...newBatch].slice(-1500));
+        setPartyAnimals(prev => [...prev, ...newBatch].slice(-1000));
         
-        // Confetti triggered less frequently to save performance at high speeds
         if (iterations % 5 === 0) {
           confetti({
             particleCount: 40,
