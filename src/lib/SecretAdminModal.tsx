@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { db, auth } from './firebase';
-import { collection, query, onSnapshot, orderBy, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, X, Clock, Monitor, MapPin, ExternalLink, Edit2, Check, XCircle, LogIn, ShieldCheck } from 'lucide-react';
@@ -17,7 +17,7 @@ interface PresenceData {
   };
 }
 
-const VisitorRow = ({ visitor, currentSessionId, isOnline }: any) => {
+const VisitorRow = ({ visitor, currentSessionId, isOnline, isAdmin }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempName, setTempName] = useState(visitor.name || '');
 
@@ -31,6 +31,34 @@ const VisitorRow = ({ visitor, currentSessionId, isOnline }: any) => {
     } catch (error) {
       console.error("Error updating name:", error);
       alert("Permission denied. Ensure you are recognized as an admin.");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!isAdmin) {
+      alert("You must be logged in as a verified admin to delete records.");
+      return;
+    }
+    if (!window.confirm(`Permanently delete session ${visitor.uid}?`)) return;
+    
+    const path = `presence/${visitor.uid}`;
+    try {
+      await deleteDoc(doc(db, 'presence', visitor.uid));
+    } catch (error) {
+      console.error("Delete failed:", error);
+      
+      const errInfo = {
+        error: error instanceof Error ? error.message : String(error),
+        operationType: 'delete',
+        path: path,
+        auth: {
+          uid: auth.currentUser?.uid,
+          email: auth.currentUser?.email,
+        }
+      };
+      
+      console.error('Firestore Error Status:', JSON.stringify(errInfo, null, 2));
+      alert(`Permission Denied: Unauthorized action.`);
     }
   };
 
@@ -67,8 +95,13 @@ const VisitorRow = ({ visitor, currentSessionId, isOnline }: any) => {
                 <Edit2 size={12} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="font-mono text-[10px] text-slate-500">ID: {visitor.uid}</div>
+              {visitor.ip && (
+                <div className="font-mono text-[10px] text-birthday-accent/60 bg-birthday-accent/5 px-1.5 py-0.5 rounded border border-birthday-accent/10">
+                  IP: {visitor.ip}
+                </div>
+              )}
               {visitor.uid === currentSessionId && (
                 <span className="bg-birthday-accent text-white text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest">You</span>
               )}
@@ -86,12 +119,30 @@ const VisitorRow = ({ visitor, currentSessionId, isOnline }: any) => {
               <ExternalLink size={8} className="opacity-0 group-hover:opacity-100 transition-opacity" />
             </a>
           ) : (
-            <div className="text-[10px] text-slate-600 uppercase tracking-tighter mt-1">Location Unknown</div>
+            <div className="text-[10px] text-red-400/50 uppercase tracking-widest mt-1 flex items-center gap-1 font-black">
+              <ShieldCheck size={10} />
+              Pending Verification / At Gate
+            </div>
           )}
         </div>
       </div>
-      <div className="text-right text-xs text-slate-500 font-serif">
-        {visitor.lastActive?.toDate ? visitor.lastActive.toDate().toLocaleTimeString() : '...ing'}
+      <div className="flex flex-col items-end gap-2">
+        <div className="text-right text-xs text-slate-500 font-serif">
+          {visitor.lastActive?.toDate ? visitor.lastActive.toDate().toLocaleTimeString() : '...ing'}
+        </div>
+        {isAdmin && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Delete clicked for:', visitor.uid);
+              handleDelete();
+            }}
+            className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-400/20 rounded-xl transition-all cursor-pointer relative z-10 mr-1"
+            title="Delete Session"
+          >
+            <XCircle size={18} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -100,6 +151,7 @@ const VisitorRow = ({ visitor, currentSessionId, isOnline }: any) => {
 export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () => void, currentSessionId: string | null | undefined }) => {
   const [visitors, setVisitors] = useState<PresenceData[]>([]);
   const [user, setUser] = useState<User | null>(auth.currentUser);
+  const isAdminUser = user?.email === 'neelamtiwari81976@gmail.com';
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
@@ -115,10 +167,43 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  const cleanupInvalidSessions = async () => {
+    if (!isAdminUser) return;
+    const invalidSessions = visitors.filter(v => !v.location);
+    if (invalidSessions.length === 0) {
+      alert("No invalid sessions (missing location) found.");
+      return;
+    }
+
+    if (!window.confirm(`Found ${invalidSessions.length} sessions without location. Permanently delete all of them?`)) return;
+
+    let successCount = 0;
+    for (const session of invalidSessions) {
+      try {
+        await deleteDoc(doc(db, 'presence', session.uid));
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to delete session ${session.uid}:`, error);
+      }
+    }
+    alert(`Cleanup complete. Deleted ${successCount} sessions.`);
+  };
+
   useEffect(() => {
     const q = query(collection(db, 'presence'), orderBy('lastActive', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => doc.data() as PresenceData);
+      const docs = snapshot.docs.map(d => ({
+        ...d.data(),
+        uid: d.id
+      } as PresenceData));
       setVisitors(docs);
     });
     return () => unsubscribe();
@@ -150,9 +235,25 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
             <div className="flex items-center gap-4 mt-2">
               <p className="text-slate-500 font-serif italic text-sm">Real-time attendance</p>
               {user ? (
-                <div className="flex items-center gap-2 bg-green-500/10 text-green-400 px-3 py-1 rounded-full text-[10px] font-bold border border-green-500/20">
-                  <ShieldCheck size={12} />
-                  ADMIN: {user.email}
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold border ${isAdminUser ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                    <ShieldCheck size={12} />
+                    {isAdminUser ? `VERIFIED ADMIN: ${user.email}` : `UNAUTHORIZED: ${user.email}`}
+                  </div>
+                  {isAdminUser && (
+                    <button 
+                      onClick={cleanupInvalidSessions}
+                      className="text-[10px] text-red-400 hover:text-red-300 font-bold uppercase tracking-widest border border-red-500/20 px-3 py-1 rounded-full hover:bg-red-500/10 transition-all"
+                    >
+                      Cleanup Invalid
+                    </button>
+                  )}
+                  <button 
+                    onClick={handleLogout}
+                    className="text-[10px] text-slate-500 hover:text-white underline transition-colors"
+                  >
+                    Logout
+                  </button>
                 </div>
               ) : (
                 <button 
@@ -214,7 +315,8 @@ export const SecretAdminModal = ({ onClose, currentSessionId }: { onClose: () =>
                       key={visitor.uid} 
                       visitor={visitor} 
                       currentSessionId={currentSessionId} 
-                      isOnline={isOnline} 
+                      isOnline={isOnline}
+                      isAdmin={isAdminUser}
                     />
                   ))}
                 </div>
