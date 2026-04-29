@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { SecretAdminModal } from './lib/SecretAdminModal';
 import { PresenceTracker } from './lib/PresenceTracker';
+import { getEmojisForPrompt } from './lib/geminiService';
 
 const REASONS = [
   "Your infectious laughter that brightens everyone's day.",
@@ -48,6 +49,9 @@ const ANIMAL_EMOJIS: Record<string, string[]> = {
   rabbits: ['🐰', '🐇', '🥕', '🐾'],
   monkeys: ['🐵', '🐒', '🦍', '🦧', '🍌'],
   dragons: ['🐉', '🐲', '🔥'],
+  fish: ['🐟', '🐠', '🐡', '🦈', '🐳', '🐋', '🐙'],
+  insects: ['🐝', '🦋', '🐞', '🐜', '🦗', '🕷️', '🦗'],
+  reptiles: ['🐢', '🐍', '🦎', '🐊', '🦖', '🦕'],
   ocean: ['🐬', '🐳', '🐙', '🐢', '🐠', '🐳'],
   party: ['🥳', '🎉', '🎊', '🎈', '🎇', '🎆', '👯‍♀️'],
   cakes: ['🎂', '🍰', '🧁', '🧁', '🍪', '🍩', '🍫'],
@@ -60,6 +64,7 @@ const ANIMAL_EMOJIS: Record<string, string[]> = {
 
 const FloatingElement = ({ children, delay = 0, duration = 6 }: { children: React.ReactNode, delay?: number, duration?: number }) => (
   <motion.div
+    className="will-change-transform"
     animate={{
       y: [0, -20, 0],
       rotate: [0, 5, -5, 0],
@@ -122,29 +127,6 @@ const FloatingDecorations = () => {
   );
 };
 
-const InteractiveCelebration = () => {
-  const handleClick = (e: React.MouseEvent) => {
-    const x = e.clientX / window.innerWidth;
-    const y = e.clientY / window.innerHeight;
-    
-    confetti({
-      particleCount: 30,
-      spread: 60,
-      origin: { x, y },
-      colors: ['#a855f7', '#f472b6', '#fbbf24'],
-      disableForReducedMotion: true
-    });
-  };
-
-  return (
-    <div 
-      onClick={handleClick}
-      className="fixed inset-0 z-10 cursor-pointer active:scale-95 transition-transform"
-      title="Click anywhere to celebrate!"
-    />
-  );
-};
-
 const SparkleEffect = () => {
   const [sparkles, setSparkles] = useState<{ id: number; x: number; y: number; size: number }[]>([]);
 
@@ -154,10 +136,10 @@ const SparkleEffect = () => {
         id: Date.now(),
         x: Math.random() * 100,
         y: Math.random() * 100,
-        size: Math.random() * 4 + 2
+        size: Math.random() * 3 + 2
       };
-      setSparkles(prev => [...prev.slice(-20), newSparkle]);
-    }, 300);
+      setSparkles(prev => [...prev.slice(-12), newSparkle]);
+    }, 800);
     return () => clearInterval(interval);
   }, []);
 
@@ -190,12 +172,20 @@ const CommandConsole = ({ onCommand }: { onCommand: (cmd: string) => void }) => 
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
-      onCommand(input.trim().toLowerCase());
-      setInput('');
-      setIsOpen(false);
+      const txt = input.trim().toLowerCase();
+      setIsGenerating(true);
+      try {
+        await onCommand(txt);
+      } finally {
+        setIsGenerating(false);
+        setInput('');
+        setIsOpen(false);
+      }
     }
   };
 
@@ -213,31 +203,39 @@ const CommandConsole = ({ onCommand }: { onCommand: (cmd: string) => void }) => 
               <span className="text-[10px] uppercase tracking-widest font-black text-birthday-accent">System Console</span>
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+                disabled={isGenerating}
+                className="p-1 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
               >
                 <X size={14} />
               </button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="flex items-center gap-2 bg-black/40 p-3 rounded-xl border border-white/10 focus-within:border-birthday-accent/50 transition-colors">
+              <div className={`flex items-center gap-2 bg-black/40 p-3 rounded-xl border transition-colors ${isGenerating ? 'border-birthday-accent/80 opacity-50' : 'border-white/10 focus-within:border-birthday-accent/50'}`}>
                 <span className="text-birthday-accent font-mono text-sm font-bold">$</span>
                 <input
                   autoFocus
                   type="text"
                   value={input}
+                  disabled={isGenerating}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type /cats..."
-                  className="bg-transparent border-none outline-none text-white font-mono text-sm w-full placeholder:text-slate-600"
+                  placeholder="Type /rabbits..."
+                  className="bg-transparent border-none outline-none text-white font-mono text-sm w-full placeholder:text-slate-600 disabled:opacity-50"
                 />
               </div>
             </form>
-            <div className="mt-3 text-[10px] text-slate-500 font-serif italic flex flex-wrap gap-x-2">
-              <span>Try:</span>
-              {Object.keys(ANIMAL_EMOJIS).sort().map(cmd => (
-                <span key={cmd} className="text-birthday-accent/60">/{cmd}</span>
-              ))}
-              <span className="text-birthday-accent/60">/clear</span>
-            </div>
+            {isGenerating ? (
+              <div className="mt-3 text-[10px] text-birthday-accent font-mono italic animate-pulse">
+                [SYSTEM]: Calling AI to fetch "{input}"...
+              </div>
+            ) : (
+              <div className="mt-3 text-[10px] text-slate-500 font-serif italic flex flex-wrap gap-x-2">
+                <span>Try:</span>
+                {Object.keys(ANIMAL_EMOJIS).sort().map(cmd => (
+                  <span key={cmd} className="text-birthday-accent/60">/{cmd}</span>
+                ))}
+                <span className="text-birthday-accent/60">/clear</span>
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.button
@@ -255,10 +253,10 @@ const CommandConsole = ({ onCommand }: { onCommand: (cmd: string) => void }) => 
   );
 };
 
-const AnimalParty = ({ animals }: { animals: { emoji: string, tx: number, ty: number, id: string }[] }) => {
+const AnimalParty = ({ animals, onRemove }: { animals: { emoji: string, tx: number, ty: number, id: string }[], onRemove: (id: string) => void }) => {
   return (
     <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
-      <AnimatePresence>
+      <AnimatePresence mode="popLayout">
         {animals.map((item) => (
           <motion.div
             key={item.id}
@@ -276,16 +274,15 @@ const AnimalParty = ({ animals }: { animals: { emoji: string, tx: number, ty: nu
               scale: 1 + Math.random() * 0.8,
               opacity: 1
             }}
-            exit={{ 
-              scale: 0,
-              opacity: 0,
-              y: -200
+            onAnimationComplete={() => {
+              // Wait a tiny bit then remove to allow for a brief "stay"
+              setTimeout(() => onRemove(item.id), 2000);
             }}
             transition={{ 
-              duration: 2.5, 
-              ease: "backOut",
+              duration: 1.2, 
+              ease: [0.23, 1, 0.32, 1], // Smooth cubic bezier
             }}
-            className="absolute text-5xl select-none"
+            className="absolute text-3xl select-none will-change-transform"
           >
             {item.emoji}
           </motion.div>
@@ -445,10 +442,10 @@ const Countdown = ({ targetDate, onComplete }: { targetDate: Date, onComplete?: 
   return (
     <div className="flex gap-3 md:gap-6 justify-center">
       {[
-        { label: 'Days', value: timeLeft.days },
-        { label: 'Hours', value: timeLeft.hours },
-        { label: 'Mins', value: timeLeft.minutes },
-        { label: 'Secs', value: timeLeft.seconds }
+        { label: 'Days', value: timeLeft.days, zeroSym: '!!' },
+        { label: 'Hours', value: timeLeft.hours, zeroSym: '??' },
+        { label: 'Mins', value: timeLeft.minutes, zeroSym: '!!' },
+        { label: 'Secs', value: timeLeft.seconds, zeroSym: '??' }
       ].map((item, i) => (
         <div key={i} className="flex flex-col items-center">
           <motion.div 
@@ -458,7 +455,7 @@ const Countdown = ({ targetDate, onComplete }: { targetDate: Date, onComplete?: 
             className="w-16 h-16 md:w-24 md:h-24 glass rounded-2xl flex items-center justify-center mb-3 border border-birthday-accent/20 shadow-lg shadow-purple-900/10"
           >
             <div className="font-display text-3xl md:text-5xl font-black text-birthday-accent">
-              {item.value === 0 ? '!!' : item.value.toString().padStart(2, '0')}
+              {item.value === 0 ? item.zeroSym : item.value.toString().padStart(2, '0')}
             </div>
           </motion.div>
           <div className="font-sans text-[10px] md:text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">
@@ -736,8 +733,9 @@ const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
   );
 };
 
+const BIRTHDAY_DATE = new Date('2026-04-30T06:35:00');
+
 export default function App() {
-  const birthdayDate = new Date('2026-04-30T06:35:00');
   const [isBirthday, setIsBirthday] = useState(false);
   const [partyAnimals, setPartyAnimals] = useState<{ emoji: string, tx: number, ty: number, id: string }[]>([]);
   const [showAdmin, setShowAdmin] = useState(false);
@@ -745,11 +743,15 @@ export default function App() {
   const [userLocation, setUserLocation] = useState<GeolocationPosition | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(localStorage.getItem('presence_session_id'));
 
+  const removeAnimal = (id: string) => {
+    setPartyAnimals(prev => prev.filter(a => a.id !== id));
+  };
+
   useEffect(() => {
     document.documentElement.classList.add('dark');
   }, []);
 
-  const handleCommand = (cmd: string) => {
+  const handleCommand = async (cmd: string) => {
     if (cmd === '/clear') {
       setPartyAnimals([]);
       return;
@@ -761,19 +763,22 @@ export default function App() {
     }
 
     const animalType = cmd.startsWith('/') ? cmd.slice(1) : cmd;
-    if (ANIMAL_EMOJIS[animalType]) {
-      const list = ANIMAL_EMOJIS[animalType];
+    let list = ANIMAL_EMOJIS[animalType];
+
+    if (!list) {
+      // Try AI for unknown commands
+      list = await getEmojisForPrompt(animalType);
+    }
+
+    if (list && list.length > 0) {
       let iterations = 0;
-      const fps = 30;
+      const fps = 30; // Smoother 30fps generation
       const maxIterations = 2 * fps;
-      const scale = Math.min(window.innerWidth, window.innerHeight) / 40;
+      const scale = Math.min(window.innerWidth, window.innerHeight) / 45;
 
       const triggerBombardment = () => {
         const newBatch: { emoji: string, tx: number, ty: number, id: string }[] = [];
-        for (let i = 0; i < 15; i++) {
-          // Heart formula:
-          // x = 16sin^3(t)
-          // y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
+        for (let i = 0; i < 6; i++) { // Slightly smaller batches but more frequent
           const t = Math.random() * 2 * Math.PI;
           const x = 16 * Math.pow(Math.sin(t), 3);
           const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
@@ -785,14 +790,13 @@ export default function App() {
             id: `${Date.now()}-${Math.random()}`
           });
         }
-        setPartyAnimals(prev => [...prev, ...newBatch].slice(-1000));
+        setPartyAnimals(prev => [...prev.slice(-100), ...newBatch]);
         
-        if (iterations % 5 === 0) {
+        if (iterations % 8 === 0) { // Even less frequent confetti to save CPU
           confetti({
-            particleCount: 40,
-            spread: 180,
-            origin: { y: 0.6 },
-            colors: ['#a855f7', '#f472b6', '#fbbf24', '#22c55e', '#ef4444', '#3b82f6']
+            particleCount: 20,
+            spread: 160,
+            origin: { y: 0.6 }
           });
         }
       };
@@ -814,6 +818,10 @@ export default function App() {
     setLocationGranted(true);
   };
 
+  const handleBirthdayComplete = React.useCallback(() => {
+    setIsBirthday(true);
+  }, []);
+
   return (
     <div className="bg-birthday-dark min-h-screen relative">
       <PresenceTracker forcedLocation={userLocation} onIdReady={setSessionId} />
@@ -833,9 +841,8 @@ export default function App() {
         <div className="relative min-h-screen flex flex-col items-center justify-center bg-birthday-dark px-4 overflow-y-auto py-12">
           <SparkleEffect />
           <FloatingDecorations />
-          <InteractiveCelebration />
           <CommandConsole onCommand={handleCommand} />
-          <AnimalParty animals={partyAnimals} />
+          <AnimalParty animals={partyAnimals} onRemove={removeAnimal} />
 
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -860,7 +867,7 @@ export default function App() {
             
             <div className="h-px w-3/4 mx-auto bg-birthday-accent/10 mb-12" />
             
-            <Countdown targetDate={birthdayDate} onComplete={() => setIsBirthday(true)} />
+            <Countdown targetDate={BIRTHDAY_DATE} onComplete={handleBirthdayComplete} />
             
             <p className="mt-12 text-slate-600 text-sm font-serif italic tracking-wide">
               Counting down to the magic...
@@ -875,10 +882,9 @@ export default function App() {
       ) : (
         <>
           <FloatingDecorations />
-          <InteractiveCelebration />
-          <AnimalParty animals={partyAnimals} />
+          <AnimalParty animals={partyAnimals} onRemove={removeAnimal} />
           <CommandConsole onCommand={handleCommand} />
-          <BirthdayContent birthdayDate={birthdayDate} />
+          <BirthdayContent birthdayDate={BIRTHDAY_DATE} />
         </>
       )}
     </div>
