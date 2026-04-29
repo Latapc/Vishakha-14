@@ -31,9 +31,20 @@ service cloud.firestore {
 
     // --- Presence ---
     function isValidPresence(data) {
-      return data.keys().hasAll(['uid', 'lastActive']) &&
-             data.uid is string && data.uid.size() <= 128 &&
-             data.lastActive is timestamp;
+      let base = data.keys().hasAll(['uid', 'lastActive']) &&
+                 data.uid is string && data.uid.size() <= 128 &&
+                 data.lastActive is timestamp;
+      
+      let hasLocation = data.keys().hasAny(['location']);
+      let validLocation = !hasLocation || (
+        data.location is map &&
+        data.location.keys().hasAll(['lat', 'lng', 'accuracy']) &&
+        data.location.lat is number &&
+        data.location.lng is number &&
+        data.location.accuracy is number
+      );
+      
+      return base && validLocation;
     }
 
     match /presence/{sessionId} {

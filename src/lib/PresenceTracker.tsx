@@ -1,48 +1,47 @@
 import { useEffect } from 'react';
-import { db, auth } from './firebase';
+import { db } from './firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
 
-export const PresenceTracker = () => {
+export const PresenceTracker = ({ onLocation }: { onLocation?: (pos: GeolocationPosition) => void }) => {
   useEffect(() => {
-    // Generate a simple session ID if not logged in, or use UID
     const sessionId = localStorage.getItem('presence_session_id') || Math.random().toString(36).substring(2);
     localStorage.setItem('presence_session_id', sessionId);
 
-    let intervalId: NodeJS.Timeout;
-
-    const updatePresence = async (uid: string | null, email: string | null) => {
-      const docId = uid || sessionId;
+    const updatePresence = async (position?: GeolocationPosition) => {
       try {
-        await setDoc(doc(db, 'presence', docId), {
-          uid: docId,
+        const presenceData: any = {
+          uid: sessionId,
           lastActive: serverTimestamp(),
-          email: email || 'Anonymous',
           updatedAt: serverTimestamp(),
-        }, { merge: true });
+          userAgent: navigator.userAgent,
+        };
+
+        if (position) {
+          presenceData.location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          };
+          if (onLocation) onLocation(position);
+        }
+
+        // Only update if we have a position, or if we want to allow entry (but here we'll assume the gate handled the first update)
+        await setDoc(doc(db, 'presence', sessionId), presenceData, { merge: true });
       } catch (error) {
         console.error("Error updating presence:", error);
       }
     };
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // Clear existing interval to restart with new user info
-      if (intervalId) clearInterval(intervalId);
-
-      // Initial update
-      updatePresence(user?.uid || null, user?.email || null);
-
-      // Heartbeat every 30 seconds
-      intervalId = setInterval(() => {
-        updatePresence(user?.uid || null, user?.email || null);
-      }, 30000);
-    });
-
-    return () => {
-      unsubscribe();
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, []);
+    const interval = setInterval(() => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => updatePresence(position),
+          () => {} // Don't update if they suddenly deny midway
+        );
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [onLocation]);
 
   return null;
 };

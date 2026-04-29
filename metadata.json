@@ -1,5 +1,5 @@
 {
   "name": "Sweet 14 Vishakha",
   "description": "A magical 14th birthday surprise website for Vishakha, celebrating her special day on April 30th.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["geolocation"]
 }

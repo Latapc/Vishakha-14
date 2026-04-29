@@ -6,7 +6,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { 
   Heart, 
   Gift, 
@@ -18,14 +17,12 @@ import {
   ChevronDown,
   PartyPopper,
   Quote,
-  Activity,
-  LogIn,
-  LogOut
+  Terminal,
+  MapPin,
+  X
 } from 'lucide-react';
+import { SecretAdminModal } from './lib/SecretAdminModal';
 import { PresenceTracker } from './lib/PresenceTracker';
-import { AdminPage } from './lib/AdminPage';
-import { auth } from './lib/firebase';
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 const REASONS = [
   "Your infectious laughter that brightens everyone's day.",
@@ -43,6 +40,23 @@ const REASONS = [
   "Your thoughtful and caring nature.",
   "Simply because you are YOU, and that's more than enough."
 ];
+
+const ANIMAL_EMOJIS: Record<string, string[]> = {
+  cats: ['🐱', '🐈', '😻', '😸', '😺', '🐾'],
+  dogs: ['🐶', '🐕', '🐩', '🦮', '🦴', '🐾'],
+  birds: ['🐦', '🕊️', '🦅', '🦆', '🦜', '🪶'],
+  rabbits: ['🐰', '🐇', '🥕', '🐾'],
+  monkeys: ['🐵', '🐒', '🦍', '🦧', '🍌'],
+  dragons: ['🐉', '🐲', '🔥'],
+  ocean: ['🐬', '🐳', '🐙', '🐢', '🐠', '🐳'],
+  party: ['🥳', '🎉', '🎊', '🎈', '🎇', '🎆', '👯‍♀️'],
+  cakes: ['🎂', '🍰', '🧁', '🧁', '🍪', '🍩', '🍫'],
+  food: ['🍕', '🍔', '🍟', '🍦', '🍩', '🍎', '🍓'],
+  balloons: ['🎈', '🎈', '🎈', '🎈', '🎈'],
+  gifts: ['🎁', '🎁', '📦', '🧧', '🎁'],
+  music: ['🎸', '🎺', '🎻', '🎤', '🎧', '📻', '🎷'],
+  stars: ['✨', '⭐', '🌟', '💫', '🌠']
+};
 
 const FloatingElement = ({ children, delay = 0, duration = 6 }: { children: React.ReactNode, delay?: number, duration?: number }) => (
   <motion.div
@@ -168,6 +182,211 @@ const SparkleEffect = () => {
           />
         ))}
       </AnimatePresence>
+    </div>
+  );
+};
+
+const CommandConsole = ({ onCommand }: { onCommand: (cmd: string) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [input, setInput] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim()) {
+      onCommand(input.trim().toLowerCase());
+      setInput('');
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-6 left-6 z-[110]">
+      <AnimatePresence>
+        {isOpen ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+            className="glass p-4 rounded-2xl border border-white/20 shadow-2xl mb-4 w-64"
+          >
+            <div className="flex justify-between items-center mb-3 text-slate-400">
+              <span className="text-[10px] uppercase tracking-widest font-black text-birthday-accent">System Console</span>
+              <button 
+                onClick={() => setIsOpen(false)} 
+                className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="flex items-center gap-2 bg-black/40 p-3 rounded-xl border border-white/10 focus-within:border-birthday-accent/50 transition-colors">
+                <span className="text-birthday-accent font-mono text-sm font-bold">$</span>
+                <input
+                  autoFocus
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Type /cats..."
+                  className="bg-transparent border-none outline-none text-white font-mono text-sm w-full placeholder:text-slate-600"
+                />
+              </div>
+            </form>
+            <div className="mt-3 text-[10px] text-slate-500 font-serif italic flex flex-wrap gap-x-2">
+              <span>Try:</span>
+              {Object.keys(ANIMAL_EMOJIS).sort().map(cmd => (
+                <span key={cmd} className="text-birthday-accent/60">/{cmd}</span>
+              ))}
+              <span className="text-birthday-accent/60">/clear</span>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.button
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsOpen(true)}
+            className="p-4 bg-birthday-accent text-white rounded-2xl border border-white/20 shadow-xl shadow-purple-900/40 hover:brightness-110 flex items-center gap-3 active:scale-95 transition-all"
+          >
+            <Terminal size={20} />
+            <span className="text-xs font-bold font-display uppercase tracking-widest leading-none">Open Console</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const AnimalParty = ({ animals }: { animals: string[] }) => {
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+      <AnimatePresence>
+        {animals.map((emoji, i) => (
+          <motion.div
+            key={`${emoji}-${i}`}
+            initial={{ 
+              x: Math.random() * window.innerWidth, 
+              y: window.innerHeight + 100,
+              rotate: Math.random() * 360,
+              scale: 0.5
+            }}
+            animate={{ 
+              y: -500,
+              rotate: Math.random() * 720,
+              scale: 1 + Math.random() * 1.5,
+              x: (Math.random() - 0.5) * 800 + (Math.random() * window.innerWidth)
+            }}
+            transition={{ 
+              duration: 4 + Math.random() * 4, 
+              repeat: Infinity,
+              ease: "linear",
+              delay: Math.random() * 2
+            }}
+            className="absolute text-6xl select-none"
+          >
+            {emoji}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const LocationGate = ({ onGrant }: { onGrant: () => void }) => {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const requestPermission = () => {
+    setLoading(true);
+    setError(null);
+    if (!("geolocation" in navigator)) {
+      setError("Geolocation is not supported by your browser.");
+      setLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        onGrant();
+      },
+      (err) => {
+        setLoading(false);
+        if (err.code === 1) {
+          setError("Permission denied. We need your location to enter the party!");
+        } else {
+          setError("Could not fetch location. Please try again.");
+          // For sandbox environments where geolocation might fail but we don't want to lock out the user forever
+          // if it's not a permission issue, maybe allow after multiple tries? 
+          // But user said "don't allow", so we stay strict.
+        }
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-birthday-dark flex items-center justify-center p-6 text-center overflow-hidden">
+      <SparkleEffect />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="glass p-10 md:p-16 rounded-[40px] md:rounded-[60px] max-w-lg w-full relative z-10 border-2 border-birthday-accent/20"
+      >
+        <motion.div
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="bg-birthday-accent/20 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl shadow-birthday-accent/20"
+        >
+          <MapPin size={48} className="text-birthday-accent" />
+        </motion.div>
+        
+        <h2 className="text-3xl md:text-4xl font-display font-black text-white mb-6 tracking-tight">
+          Security Verification 🛡️
+        </h2>
+        
+        <p className="font-serif text-lg text-slate-400 italic mb-8 leading-relaxed px-4">
+          To protect this surprise from hackers and unauthorized bots, we require a quick geographic verification.
+        </p>
+
+        <div className="bg-red-500/5 p-6 rounded-3xl border border-red-500/10 mb-8 text-left">
+          <p className="text-xs text-slate-300 leading-relaxed">
+            <strong className="text-red-400 block mb-1 uppercase tracking-wider">Antihack Protocol:</strong>
+            By pinning your location, you verify that you are a real guest. This ensures Vishakha's special world remains safe and private for friends and family only.
+          </p>
+        </div>
+
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl text-red-400 text-sm font-serif italic"
+          >
+            {error}
+          </motion.div>
+        )}
+
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={requestPermission}
+          disabled={loading}
+          className="w-full py-5 bg-birthday-accent text-white rounded-[24px] font-display font-black text-lg uppercase tracking-widest shadow-xl shadow-purple-900/40 hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed group relative overflow-hidden"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Stars className="animate-spin" size={20} />
+              Securing Entry...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              Pin your location & Enter
+              <ChevronDown size={20} className="-rotate-90 group-hover:translate-x-1 transition-transform" />
+            </span>
+          )}
+        </motion.button>
+
+        <p className="mt-8 text-slate-600 text-[10px] uppercase tracking-[0.2em] font-black">
+          Celebrating from around the world
+        </p>
+      </motion.div>
     </div>
   );
 };
@@ -504,83 +723,68 @@ const BirthdayContent = ({ birthdayDate }: { birthdayDate: Date }) => {
   );
 };
 
-const MainView = () => {
+export default function App() {
   const birthdayDate = new Date('2026-04-30T06:35:00');
   const [isBirthday, setIsBirthday] = useState(false);
-  const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [partyAnimals, setPartyAnimals] = useState<string[]>([]);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [locationGranted, setLocationGranted] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-    });
-    return () => unsub();
   }, []);
 
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login failed", error);
+  const handleCommand = (cmd: string) => {
+    if (cmd === '/clear') {
+      setPartyAnimals([]);
+      return;
+    }
+
+    if (cmd === '/hahalol') {
+      setShowAdmin(true);
+      return;
+    }
+
+    const animalType = cmd.startsWith('/') ? cmd.slice(1) : cmd;
+    if (ANIMAL_EMOJIS[animalType]) {
+      const list = ANIMAL_EMOJIS[animalType];
+      let iterations = 0;
+      const fps = 30;
+      const maxIterations = 15 * fps;
+
+      const triggerBombardment = () => {
+        const newBatch: string[] = [];
+        // Adjusted batch size for 30fps to maintain extreme density without crashing
+        for (let i = 0; i < 15; i++) {
+          newBatch.push(list[Math.floor(Math.random() * list.length)]);
+        }
+        setPartyAnimals(prev => [...prev, ...newBatch].slice(-1500));
+        
+        // Confetti triggered less frequently to save performance at high speeds
+        if (iterations % 5 === 0) {
+          confetti({
+            particleCount: 40,
+            spread: 180,
+            origin: { y: 0.6 },
+            colors: ['#a855f7', '#f472b6', '#fbbf24', '#22c55e', '#ef4444', '#3b82f6']
+          });
+        }
+      };
+
+      triggerBombardment(); 
+      const interval = setInterval(() => {
+        iterations++;
+        if (iterations >= maxIterations) {
+          clearInterval(interval);
+        } else {
+          triggerBombardment();
+        }
+      }, 1000 / fps);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-birthday-dark flex items-center justify-center">
-        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}>
-          <Sparkles className="text-birthday-accent" size={40} />
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="relative min-h-screen flex flex-col items-center justify-center bg-birthday-dark px-4 overflow-hidden">
-        <SparkleEffect />
-        <FloatingDecorations />
-        
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center z-10 glass p-10 md:p-16 rounded-[40px] md:rounded-[60px] max-w-xl w-full"
-        >
-          <motion.div
-            animate={{ y: [0, -10, 0] }}
-            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-            className="inline-block mb-8"
-          >
-            <div className="p-6 bg-birthday-accent/10 rounded-full border border-birthday-accent/30 shadow-2xl shadow-purple-500/20">
-              <Heart size={60} className="text-birthday-accent fill-birthday-accent/20" />
-            </div>
-          </motion.div>
-          
-          <h1 className="font-display text-4xl md:text-5xl font-black text-white mb-6">
-            Welcome to Vishakha's Birthday Surprise!
-          </h1>
-          <p className="font-serif text-lg text-slate-400 italic mb-10 leading-relaxed px-4">
-            A special gift is being prepared. Please identify yourself to join the celebration countdown.
-          </p>
-          
-          <button 
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-birthday-accent text-white py-5 rounded-2xl font-bold font-display uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-purple-500/20 group"
-          >
-            <LogIn size={20} />
-            Enter the Surprise
-          </button>
-        </motion.div>
-
-        <div className="absolute inset-0 pointer-events-none opacity-50">
-          <div className="absolute top-10 left-10"><FloatingElement delay={0}><Stars className="text-yellow-200" /></FloatingElement></div>
-          <div className="absolute bottom-10 right-10"><FloatingElement delay={1}><Gift className="text-purple-200" /></FloatingElement></div>
-        </div>
-      </div>
-    );
+  if (!locationGranted) {
+    return <LocationGate onGrant={() => setLocationGranted(true)} />;
   }
 
   if (!isBirthday) {
@@ -589,7 +793,13 @@ const MainView = () => {
         <SparkleEffect />
         <FloatingDecorations />
         <InteractiveCelebration />
-        
+        <CommandConsole onCommand={handleCommand} />
+        <AnimalParty animals={partyAnimals} />
+        <PresenceTracker />
+
+        <AnimatePresence>
+          {showAdmin && <SecretAdminModal onClose={() => setShowAdmin(false)} />}
+        </AnimatePresence>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -620,35 +830,6 @@ const MainView = () => {
           </p>
         </motion.div>
 
-        {/* Global Controls */}
-        <div className="fixed bottom-6 left-6 z-50 flex items-center gap-3">
-          <button 
-            onClick={() => signOut(auth)}
-            className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2 group shadow-xl"
-            title="Sign Out"
-          >
-            <LogOut size={20} />
-            <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 whitespace-nowrap text-xs font-bold font-display uppercase tracking-widest">
-              Sign Out
-            </span>
-          </button>
-          
-          {user.email === 'neelamtiwari81976@gmail.com' && (
-            <a 
-              href="/admin-view-presence" 
-              className="p-3 bg-birthday-accent/20 backdrop-blur-md rounded-2xl border border-birthday-accent/30 text-birthday-accent hover:scale-110 transition-all flex items-center gap-2 group shadow-xl"
-              title="Admin Dashboard"
-            >
-              <Activity size={20} />
-              <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 whitespace-nowrap text-xs font-bold font-display uppercase tracking-widest">
-                Presence Dash
-              </span>
-            </a>
-          )}
-          
-          <PresenceTracker />
-        </div>
-
         <div className="absolute inset-0 pointer-events-none opacity-50">
           <div className="absolute top-10 left-10"><FloatingElement delay={0}><Heart className="text-purple-200" /></FloatingElement></div>
           <div className="absolute bottom-10 right-10"><FloatingElement delay={1}><Stars className="text-yellow-200" /></FloatingElement></div>
@@ -658,35 +839,17 @@ const MainView = () => {
   }
 
   return (
-    <>
+    <div className="bg-birthday-dark min-h-screen">
       <FloatingDecorations />
       <InteractiveCelebration />
-      <BirthdayContent birthdayDate={birthdayDate} />
-      
-      {/* Sign Out for authorized users even on main content */}
-      <div className="fixed bottom-6 left-6 z-50">
-        <button 
-          onClick={() => signOut(auth)}
-          className="p-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2 group shadow-xl"
-        >
-          <LogOut size={20} />
-          <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 whitespace-nowrap text-xs font-bold font-display uppercase tracking-widest">
-            Leave Surprise
-          </span>
-        </button>
-      </div>
-    </>
-  );
-};
-
-export default function App() {
-  return (
-    <BrowserRouter>
+      <AnimalParty animals={partyAnimals} />
+      <CommandConsole onCommand={handleCommand} />
       <PresenceTracker />
-      <Routes>
-        <Route path="/" element={<MainView />} />
-        <Route path="/admin-view-presence" element={<AdminPage />} />
-      </Routes>
-    </BrowserRouter>
+      <AnimatePresence>
+        {showAdmin && <SecretAdminModal onClose={() => setShowAdmin(false)} />}
+      </AnimatePresence>
+      <BirthdayContent birthdayDate={birthdayDate} />
+    </div>
   );
 }
+

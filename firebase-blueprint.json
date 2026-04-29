@@ -14,12 +14,20 @@
     },
     "Presence": {
       "title": "Presence",
-      "description": "Tracks online status of users",
+      "description": "Tracks online status and location of users",
       "type": "object",
       "properties": {
         "uid": { "type": "string", "description": "Unique identifier for the session" },
         "lastActive": { "type": "string", "format": "date-time", "description": "Last heartbeat time" },
-        "email": { "type": "string", "description": "User email if logged in" }
+        "email": { "type": "string", "description": "User email if logged in" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "accuracy": { "type": "number" }
+          }
+        }
       },
       "required": ["uid", "lastActive"]
     }
