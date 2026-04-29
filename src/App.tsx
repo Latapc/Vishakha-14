@@ -295,7 +295,7 @@ const AnimalParty = ({ animals }: { animals: { emoji: string, tx: number, ty: nu
   );
 };
 
-const LocationGate = ({ onGrant }: { onGrant: () => void }) => {
+const LocationGate = ({ onGrant }: { onGrant: (pos: GeolocationPosition) => void }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -309,8 +309,8 @@ const LocationGate = ({ onGrant }: { onGrant: () => void }) => {
     }
 
     navigator.geolocation.getCurrentPosition(
-      () => {
-        onGrant();
+      (pos) => {
+        onGrant(pos);
       },
       (err) => {
         setLoading(false);
@@ -734,6 +734,7 @@ export default function App() {
   const [partyAnimals, setPartyAnimals] = useState<{ emoji: string, tx: number, ty: number, id: string }[]>([]);
   const [showAdmin, setShowAdmin] = useState(false);
   const [locationGranted, setLocationGranted] = useState(false);
+  const [userLocation, setUserLocation] = useState<GeolocationPosition | null>(null);
 
   useEffect(() => {
     document.documentElement.classList.add('dark');
@@ -799,72 +800,73 @@ export default function App() {
     }
   };
 
-  if (!locationGranted) {
-    return <LocationGate onGrant={() => setLocationGranted(true)} />;
-  }
-
-  if (!isBirthday) {
-    return (
-      <div className="relative min-h-screen flex flex-col items-center justify-center bg-birthday-dark px-4 overflow-y-auto py-12">
-        <SparkleEffect />
-        <FloatingDecorations />
-        <InteractiveCelebration />
-        <CommandConsole onCommand={handleCommand} />
-        <AnimalParty animals={partyAnimals} />
-        <PresenceTracker />
-
-        <AnimatePresence>
-          {showAdmin && <SecretAdminModal onClose={() => setShowAdmin(false)} />}
-        </AnimatePresence>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center z-10 glass p-10 md:p-16 rounded-[40px] md:rounded-[60px] max-w-xl w-full my-auto"
-        >
-          <motion.div
-            animate={{ y: [0, -10, 0] }}
-            transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-            className="inline-block mb-12"
-          >
-            <Gift size={80} strokeWidth={1.5} className="text-birthday-accent" />
-          </motion.div>
-          
-          <h1 className="font-display text-5xl md:text-6xl font-black text-birthday-accent mb-8 tracking-tight">
-            A Surprise<br />Awaits...
-          </h1>
-          <p className="font-serif text-xl text-slate-400 italic mb-12 leading-relaxed px-4">
-            Vishakha, your special 14th birthday gift is currently locked. 
-            It will reveal itself exactly at 6:35 AM on April 30th!
-          </p>
-          
-          <div className="h-px w-3/4 mx-auto bg-birthday-accent/10 mb-12" />
-          
-          <Countdown targetDate={birthdayDate} onComplete={() => setIsBirthday(true)} />
-          
-          <p className="mt-12 text-slate-600 text-sm font-serif italic tracking-wide">
-            Counting down to the magic...
-          </p>
-        </motion.div>
-
-        <div className="absolute inset-0 pointer-events-none opacity-50">
-          <div className="absolute top-10 left-10"><FloatingElement delay={0}><Heart className="text-purple-200" /></FloatingElement></div>
-          <div className="absolute bottom-10 right-10"><FloatingElement delay={1}><Stars className="text-yellow-200" /></FloatingElement></div>
-        </div>
-      </div>
-    );
-  }
+  const handleLocationGrant = (pos: GeolocationPosition) => {
+    setUserLocation(pos);
+    setLocationGranted(true);
+  };
 
   return (
-    <div className="bg-birthday-dark min-h-screen">
-      <FloatingDecorations />
-      <InteractiveCelebration />
-      <AnimalParty animals={partyAnimals} />
-      <CommandConsole onCommand={handleCommand} />
-      <PresenceTracker />
+    <div className="bg-birthday-dark min-h-screen relative">
+      <PresenceTracker forcedLocation={userLocation} />
+      
       <AnimatePresence>
         {showAdmin && <SecretAdminModal onClose={() => setShowAdmin(false)} />}
       </AnimatePresence>
-      <BirthdayContent birthdayDate={birthdayDate} />
+
+      {!locationGranted ? (
+        <LocationGate onGrant={handleLocationGrant} />
+      ) : !isBirthday ? (
+        <div className="relative min-h-screen flex flex-col items-center justify-center bg-birthday-dark px-4 overflow-y-auto py-12">
+          <SparkleEffect />
+          <FloatingDecorations />
+          <InteractiveCelebration />
+          <CommandConsole onCommand={handleCommand} />
+          <AnimalParty animals={partyAnimals} />
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center z-10 glass p-10 md:p-16 rounded-[40px] md:rounded-[60px] max-w-xl w-full my-auto"
+          >
+            <motion.div
+              animate={{ y: [0, -10, 0] }}
+              transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+              className="inline-block mb-12"
+            >
+              <Gift size={80} strokeWidth={1.5} className="text-birthday-accent" />
+            </motion.div>
+            
+            <h1 className="font-display text-5xl md:text-6xl font-black text-birthday-accent mb-8 tracking-tight">
+              A Surprise<br />Awaits...
+            </h1>
+            <p className="font-serif text-xl text-slate-400 italic mb-12 leading-relaxed px-4">
+              Vishakha, your special 14th birthday gift is currently locked. 
+              It will reveal itself exactly at 6:35 AM on April 30th!
+            </p>
+            
+            <div className="h-px w-3/4 mx-auto bg-birthday-accent/10 mb-12" />
+            
+            <Countdown targetDate={birthdayDate} onComplete={() => setIsBirthday(true)} />
+            
+            <p className="mt-12 text-slate-600 text-sm font-serif italic tracking-wide">
+              Counting down to the magic...
+            </p>
+          </motion.div>
+
+          <div className="absolute inset-0 pointer-events-none opacity-50">
+            <div className="absolute top-10 left-10"><FloatingElement delay={0}><Heart className="text-purple-200" /></FloatingElement></div>
+            <div className="absolute bottom-10 right-10"><FloatingElement delay={1}><Stars className="text-yellow-200" /></FloatingElement></div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <FloatingDecorations />
+          <InteractiveCelebration />
+          <AnimalParty animals={partyAnimals} />
+          <CommandConsole onCommand={handleCommand} />
+          <BirthdayContent birthdayDate={birthdayDate} />
+        </>
+      )}
     </div>
   );
 }
